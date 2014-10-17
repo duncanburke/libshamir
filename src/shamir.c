@@ -70,44 +70,91 @@ ssize_t shamir_key_size(shamir_params_t params){
 */
 #define _k_y(params, k, i, j) (*(_k(params,k,i) + j + 1))
 
-
-
-int shamir_init_poly(shamir_params_t params, shamir_poly_t *p, uint8_t *secret){
-	if (!p || !secret || params_invalid(params))
-		return fail(EINVAL);
-
-	ssize_t poly_size = shamir_poly_size(params);
-	if (poly_size == -1) return -1;
-
 #ifdef HAVE_RANDOM_DEVICE
-	int fd = open(RANDOM_DEVICE, O_RDONLY);
-	if (fd == -1)
-		return -1;
+int __shamir_rand_fd=-1;
 
-	size_t to_read = poly_size;
-	uint8_t *_p = p;
+int __attribute__((weak)) _shamir_init_random(){
+	if (__shamir_rand_fd)
+		return fail(EINVAL);
+	__shamir_rand_fd = open(RANDOM_DEVICE, O_RDONLY);
+	if (__shamir_rand_fd == -1)	return -1;
+	return 0;
+}
+
+int __attribute__((weak)) _shamir_get_random(void *buf, size_t buflen){
+	if (!__shamir_rand_fd || !buf || !buflen)
+		return fail(EINVAL);
+	size_t to_read = buflen;
+	uint8_t *ptr = buf;
 	ssize_t ret;
-
 	while (to_read) {
-		ret = read(fd, _p, to_read);
-		if (ret == -1){
-			int saved_errno = errno;
-			close(fd);
-			return fail(saved_errno);
-		}
-		_p += ret;
+		ret = read(__shamir_rand_fd, ptr, to_read);
+		if (ret == -1) return -1;
+		ptr += ret;
 		to_read -= ret;
 	}
+	return 0;
+}
+
+int __attribute__((weak)) _shamir_cleanup_random(){
+	if (__shamir_rand_fd < 0)
+		return fail(EINVAL);
+	int ret = close(__shamir_rand_fd);
+	if (ret == -1) return -1;
+	__shamir_rand_fd = -1;
+	return 0;
+}
 #else
 #error "No random source"
 #endif
 
-	/* Set the constant terms of the polynomials
-		 to the bytes of the secret
+int shamir_init_poly(shamir_params_t params, shamir_poly_t *p, uint8_t *secret){
+	int saved_errno;
+	int ret;
+
+	if (!p || !secret || params_invalid(params))
+		return fail(EINVAL);
+
+	ret = _shamir_init_random();
+	if (ret == -1) return -1;
+
+	/* The polynomial is generated as follows:
+		 All coefficients except the constant terms are generated randomly.
+		 The constant terms are the bytes of the secret.
+		 The highest-order coefficients are drawn from [0x01,0xff].
+		 Other coefficients are drawn from [0x00,0xff].
+	*/
+
+	/* Start by setting the entire polynomial to random values */
+	ret = _shamir_get_random(p, params.size*params.threshold);
+	if (ret == -1) goto err_1;
+
+	/* Redraw high-order coefficients until they are nonzero.
+		 This is inefficient in terms of syscalls, but it's fairly improbable.
+	*/
+
+	for (unsigned j = 0; j < params.size; j++){
+		while (!_c(params,p,params.threshold-1,j)){
+			ret = _shamir_get_random(&_c(params,p,params.threshold-1,j), 1);
+			if (ret == -1) goto err_1;
+		}
+	}
+
+	/* Set the constant coefficients to the bytes of the secret
 	*/
 	for (unsigned j = 0; j < params.size; j++)
 		_c(params, p, 0, j) = secret[j];
+
+	ret = _shamir_cleanup_random();
+	if (ret == -1) return -1;
+
 	return 0;
+
+ err_1:
+	saved_errno = errno;
+	_shamir_cleanup_random();
+	return fail(saved_errno);
+
 }
 
 /* Calculate the key k for the given x value.
