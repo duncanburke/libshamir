@@ -6,7 +6,7 @@ AC_CONFIG_MACRO_DIR(m4)
 
 AC_CONFIG_SRCDIR([include/shamir.h])
 
-AM_INIT_AUTOMAKE([1.9 foreign dist-bzip2 tar-ustar subdir-objects -Wall -Wextra])
+AM_INIT_AUTOMAKE([1.9 foreign dist-bzip2 tar-ustar subdir-objects])
 AM_MAINTAINER_MODE
 
 AC_PROG_CPP

@@ -26,13 +26,13 @@ int params_invalid(shamir_params_t params){
 }
 
 ssize_t shamir_poly_size(shamir_params_t params){
-	if (params_invalid)
+	if (params_invalid(params))
 		return fail(EINVAL);
 	return (params.size * params.threshold) * sizeof(gf256_t);
 }
 
 ssize_t shamir_key_size(shamir_params_t params){
-	if (params_invalid)
+	if (params_invalid(params))
 		return fail(EINVAL);
 	return (params.size + 1) * sizeof(gf256_t);
 }
@@ -164,7 +164,7 @@ int shamir_recover_secret(shamir_params_t params, shamir_key_t *k, uint8_t *secr
 		secret[j] = 0;
 		for (unsigned i = 0; i < params.threshold; i++){
 			/* The discrete log of the numerator and denominator of the lagrange terms */
-			unsigned log_n, log_d = 0;
+			unsigned log_n = 0, log_d = 0;
 
 			for (unsigned _i = 0; _i < params.threshold; _i++){
 				if (i == _i) continue;
@@ -182,4 +182,5 @@ int shamir_recover_secret(shamir_params_t params, shamir_key_t *k, uint8_t *secr
 				secret[j] ^= exp[log[y] + log_l];
 		}
 	}
+	return 0;
 }
