@@ -14,21 +14,21 @@
 
 #define SHAMIR_URANDOM
 
-int fail(int _errno){
+static int fail(int _errno){
 	errno = _errno;
 	return -1;
 }
 
 int params_invalid(shamir_params_t params){
-	return (params.threshold < 2 ||
-					params.threshold > MAX_KEYS ||
+	return (params.t < 2 ||
+					params.t > MAX_KEYS ||
 					params.size < 1);
 }
 
 ssize_t shamir_poly_size(shamir_params_t params){
 	if (params_invalid(params))
 		return fail(EINVAL);
-	return (params.size * params.threshold) * sizeof(gf256_t);
+	return (params.size * params.t) * sizeof(gf256_t);
 }
 
 ssize_t shamir_key_size(shamir_params_t params){
@@ -44,21 +44,21 @@ ssize_t shamir_key_size(shamir_params_t params){
 	 j indexes the byte offset within the secret and keys.
 
 	 The following invariants hold:
-	 0 <= i < params.threshold <= MAX_KEYS
+	 0 <= i < params.t <= MAX_KEYS
 	 0 <= j < params.size
 
-	 Note that params.threshold is the number of coefficients in each polynomial.
+	 Note that params.t is the number of coefficients in each polynomial.
 */
 
 /*
 	The i-th coefficient for the j-th polynomial.
 */
-#define _c(params, p, i, j) (*(p + (j * params.threshold) + i))
+#define _c(params, p, i, j) (*(p + (j * params.t) + i))
 
 /*
 	The i-th key
 */
-#define _k(params, k, i) (k + (i * params.threshold))
+#define _k(params, k, i) (k + (i * params.t))
 
 /*
 	The x value of the i-th key
@@ -126,7 +126,7 @@ int shamir_init_poly(shamir_params_t params, shamir_poly_t *p, uint8_t *secret){
 	*/
 
 	/* Start by setting the entire polynomial to random values */
-	ret = _shamir_get_random(p, params.size*params.threshold);
+	ret = _shamir_get_random(p, params.size*params.t);
 	if (ret == -1) goto err_1;
 
 	/* Redraw high-order coefficients until they are nonzero.
@@ -134,8 +134,8 @@ int shamir_init_poly(shamir_params_t params, shamir_poly_t *p, uint8_t *secret){
 	*/
 
 	for (unsigned j = 0; j < params.size; j++){
-		while (!_c(params,p,params.threshold-1,j)){
-			ret = _shamir_get_random(&_c(params,p,params.threshold-1,j), 1);
+		while (!_c(params,p,params.t-1,j)){
+			ret = _shamir_get_random(&_c(params,p,params.t-1,j), 1);
 			if (ret == -1) goto err_1;
 		}
 	}
@@ -176,7 +176,7 @@ int _shamir_get_key(shamir_params_t params, shamir_poly_t *p, gf256_t x, shamir_
 	_k_x(params,k,0) = x;
 
 	for (unsigned j = 0; j < params.size; j++){
-		int i = params.threshold - 1;
+		int i = params.t - 1;
 		unsigned y = _c(params, p, i--, j);
 		for (;i >= 0; i--){
 			if (y)
@@ -209,11 +209,11 @@ int shamir_recover_secret(shamir_params_t params, shamir_key_t *k, uint8_t *secr
 
 	for (unsigned j = 0; j < params.size; j++){
 		secret[j] = 0;
-		for (unsigned i = 0; i < params.threshold; i++){
+		for (unsigned i = 0; i < params.t; i++){
 			/* The discrete log of the numerator and denominator of the lagrange terms */
 			unsigned log_n = 0, log_d = 0;
 
-			for (unsigned _i = 0; _i < params.threshold; _i++){
+			for (unsigned _i = 0; _i < params.t; _i++){
 				if (i == _i) continue;
 				log_n += log[_k_x(params, k, _i)];
 				log_d += log[_k_x(params, k, i) ^ _k_x(params, k, _i)];

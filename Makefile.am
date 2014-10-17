@@ -14,3 +14,13 @@ pkgconfig_DATA = libshamir.pc.in
 
 AM_CFLAGS = -I$(srcdir)/include
 
+C_TESTS = test_shamir
+TESTS = $(C_TESTS)
+
+check_PROGRAMS = $(C_TESTS)
+
+test_shamir_SOURCES = tests/test_shamir.c
+test_shamir_LDADD = libshamir.la
+test_shamir_LDFLAGS = -static
+test_shamir_CPPFLAGS = -I$(top_srcdir)/include
+test_shamir_CFLAGS = -Wall -Werror
