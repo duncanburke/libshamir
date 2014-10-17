@@ -1,0 +1,10 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: libshamir
+Description: Shamir's Secret Sharing in GF(256)
+Version: @VERSION@
+Libs: -L${libdir} -lgfshare
+Cflags: -I$(includedir}
