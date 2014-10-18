@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <stdio.h>
 
+#define debug(M, ...) fprintf(stderr, "DEBUG %s:%d: " M "\n", __FILE__, __LINE__, ##__VA_ARGS__)
 
 int fail(int _errno){
 	errno = _errno;
@@ -32,7 +33,7 @@ int next_combination(unsigned *k_idxs, unsigned n, unsigned t){
 	if (t > n || t < 1)
 		return fail(EINVAL);
 
-	if (k_idxs[t-1] < n){
+	if (k_idxs[t-1] + 1 < n){
 		k_idxs[t-1]++;
 		return 0;
 	} else if (t == 1)
@@ -54,10 +55,13 @@ int next_combination(unsigned *k_idxs, unsigned n, unsigned t){
 
 #define CHECK_FAIL(pred, err, label) if (pred) { saved_errno = (err); goto label; }
 
-int check_recovery(size_t size, unsigned t, unsigned n){
+int check_recovery(size_t size, unsigned n, unsigned t){
 	int ret;
 	int saved_errno;
 	int failure = 0;
+
+	debug("size: %zd, n: %d, t: %d", size, n, t);
+
 	shamir_params_t params = {.size = size, .t = t};
 	if (n < t) return fail(EINVAL);
 
@@ -104,6 +108,10 @@ int check_recovery(size_t size, unsigned t, unsigned n){
 	ret = shamir_init_poly(params, p, secret);
 	CHECK_FAIL(ret == -1, errno, err5);
 
+	for (unsigned i = 0; i < t; i++){
+		debug("c%d: %d", i, *(p+i));
+	}
+
 	ret = shamir_get_keys(params, p, k, n);
 	CHECK_FAIL(ret == -1, errno, err5);
 
@@ -115,7 +123,7 @@ int check_recovery(size_t size, unsigned t, unsigned n){
 	for (unsigned i = 0; i < t; i++)
 		k_idxs[i] = i;
 	for (;;){
-		ret = copy_idxs(size, t, k, _k, k_idxs);
+		ret = copy_idxs(key_size, t, k, _k, k_idxs);
 		CHECK_FAIL(ret == -1, errno, err5);
 
 		ret = shamir_recover_secret(params, _k, _secret);
@@ -125,6 +133,8 @@ int check_recovery(size_t size, unsigned t, unsigned n){
 		if (ret){
 			/* Secret recovery failed */
 			failure = 1;
+			for (unsigned i = 0; i < t; i++)
+				debug("(%d,%d)", *(_k + (i * params.t)), *(_k + (i * params.t) + 1));
 			break;
 		}
 
@@ -156,7 +166,7 @@ int main (int argc, char **argv){
 	int ret;
 	char str[16];
 
-	for (unsigned n = 2; n < 5; n++){
+	for (unsigned n = 2; n < 10; n++){
 		for (unsigned t = 2; t < n; t++){
 			ret = check_recovery(4096, n, t);
 			if (ret == -1){

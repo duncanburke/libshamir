@@ -12,8 +12,6 @@
 #define GF256_MASK ((1 << 8) - 1)
 #define MAX_KEYS 254
 
-#define SHAMIR_URANDOM
-
 static int fail(int _errno){
 	errno = _errno;
 	return -1;
@@ -58,7 +56,7 @@ ssize_t shamir_key_size(shamir_params_t params){
 /*
 	The i-th key
 */
-#define _k(params, k, i) (k + (i * params.t))
+#define _k(params, k, i) (k + (i * (params.size+1)))
 
 /*
 	The x value of the i-th key
@@ -74,7 +72,7 @@ ssize_t shamir_key_size(shamir_params_t params){
 int __shamir_rand_fd=-1;
 
 int __attribute__((weak)) _shamir_init_random(){
-	if (__shamir_rand_fd)
+	if (__shamir_rand_fd != -1)
 		return fail(EINVAL);
 	__shamir_rand_fd = open(RANDOM_DEVICE, O_RDONLY);
 	if (__shamir_rand_fd == -1)	return -1;
@@ -82,7 +80,7 @@ int __attribute__((weak)) _shamir_init_random(){
 }
 
 int __attribute__((weak)) _shamir_get_random(void *buf, size_t buflen){
-	if (!__shamir_rand_fd || !buf || !buflen)
+	if ((__shamir_rand_fd == -1)|| !buf || !buflen)
 		return fail(EINVAL);
 	size_t to_read = buflen;
 	uint8_t *ptr = buf;
@@ -97,7 +95,7 @@ int __attribute__((weak)) _shamir_get_random(void *buf, size_t buflen){
 }
 
 int __attribute__((weak)) _shamir_cleanup_random(){
-	if (__shamir_rand_fd < 0)
+	if (__shamir_rand_fd == -1)
 		return fail(EINVAL);
 	int ret = close(__shamir_rand_fd);
 	if (ret == -1) return -1;
@@ -223,7 +221,7 @@ int shamir_recover_secret(shamir_params_t params, shamir_key_t *k, uint8_t *secr
 				 log_l is volatile so that the term will always be evaluated regardless
 				 of whether y = 0.
 			*/
-			volatile unsigned log_l = ((log_n%0xff) + 0xff) - (log_d%0xff);
+			volatile unsigned log_l = (((log_n%0xff) + 0xff) - (log_d%0xff))%0xff;
 			unsigned y = _k_y(params,k,i,j);
 			if (y)
 				secret[j] ^= exp[log[y] + log_l];
