@@ -1,1 +1,40 @@
+# Autotools intermediates
+Makefile
+Makefile.in
+aclocal.m4
+
+config.*
+autom4te.cache/
+compile
+configure
+depcomp
+install-sh
+libtool
+ltmain.sh
+missing
+stamp-h1
+
+m4/libtool.m4
+m4/ltoptions.m4
+m4/ltsugar.m4
+m4/ltversion.m4
+m4/lt~obsolete.m4
+
+*.dirstamp
+*.deps
+*.libs
+
+# Test harness
+test-driver
+test-suite.log
+test_shamir*
+
+# Compilation artifacts
+*.o
+*.lo
+*.la
+*.pc
+
+# Editor temp files
+*.swp
 *~
