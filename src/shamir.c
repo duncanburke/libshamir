@@ -10,7 +10,7 @@
 
 
 #define GF256_MASK ((1 << 8) - 1)
-#define MAX_KEYS 254
+#define MAX_KEYS 255
 
 static int fail(int _errno){
 	errno = _errno;
@@ -26,16 +26,17 @@ int params_invalid(shamir_params_t params){
 ssize_t shamir_poly_size(shamir_params_t params){
 	if (params_invalid(params))
 		return fail(EINVAL);
-	return (params.size * params.t) * sizeof(gf256_t);
+	return params.size * params.t;
 }
 
 ssize_t shamir_key_size(shamir_params_t params){
 	if (params_invalid(params))
 		return fail(EINVAL);
-	return (params.size + 1) * sizeof(gf256_t);
+	return params.size + 1;
 }
 
-
+#include <stdio.h>
+#define debug(M, ...) fprintf(stderr, "DEBUG %s:%d: " M "\n", __FILE__, __LINE__, ##__VA_ARGS__)
 
 /* The variables i and j have special meanings.
 	 i indexes the coefficients of the polynomials and the keys.
@@ -227,5 +228,104 @@ int shamir_recover_secret(shamir_params_t params, shamir_key_t *k, uint8_t *secr
 				secret[j] ^= exp[log[y] + log_l];
 		}
 	}
+	return 0;
+}
+
+/* Generate the next combination of idxs, selecting b indicies
+	 from the set [0,a).
+
+	 returns 0 on success, 1 on final combination, -1 on failure.
+ */
+
+int _shamir_next_combination(unsigned *idxs, unsigned a, unsigned b){
+	if (b > a || b < 1)
+		return fail(EINVAL);
+
+	if (idxs[b-1] + 1 < a){
+		idxs[b-1]++;
+		return 0;
+	} else if (b == 1)
+		return 1;
+	else {
+		for (int i = b - 2; i >= 0; i--){
+			if (idxs[i] + 1 < idxs[i+1]){
+				idxs[i++]++;
+				for (;(unsigned)i < b; i++)
+					idxs[i] = idxs[i-1] + 1;
+				return 0;
+			}
+		}
+		return 1;
+	}
+}
+
+
+static int _shamir_recover_poly_partial(shamir_params_t params, shamir_key_t *k, unsigned lagrange_term, unsigned term_degree){
+	if (term_degree == params.t - 1)
+		return 1;
+
+	unsigned n_constants = (params.t-1) - term_degree;
+	unsigned idxs[n_constants];
+	unsigned partial_term = 0;
+	int ret = 0;
+
+	for (unsigned i = 0; i < n_constants; i++){
+		idxs[i] = i;
+	}
+
+	for (;;) {
+		unsigned log_partial_subterm = 0;
+		for (unsigned i = 0; i < n_constants; i++){
+			unsigned idx = idxs[i];
+			if (idx >= lagrange_term) idx++;
+			log_partial_subterm += log[_k_x(params, k, idx)];
+		}
+		partial_term ^= exp[log_partial_subterm % 0xff];
+
+		if (term_degree)
+			ret = _shamir_next_combination(idxs, params.t-1, n_constants);
+
+		if (ret == -1)
+			return -1;
+		else if (ret || (term_degree == 0))
+			return partial_term;
+	}
+}
+
+int shamir_recover_poly(shamir_params_t params, shamir_key_t *k, shamir_poly_t *p){
+	if (!k || !p || params_invalid(params))
+		return fail(EINVAL);
+
+	memset(p, 0, params.size * params.t);
+
+	for (unsigned i = 0; i < params.t; i++){
+		/* loop over the terms of the lagrange polynomial */
+		unsigned log_d = 0;
+
+		for (unsigned _i = 0; _i < params.t; _i++){
+			/* calculate the denominator of the lagrange term */
+			if (i == _i) continue;
+			log_d += log[_k_x(params, k, i) ^ _k_x(params, k, _i)];
+		}
+		unsigned log_lagrange_factor = (0xff - (log_d%0xff))%0xff;
+
+		for (unsigned _i = 0; _i < params.t; _i++){
+			/* calculate the partial contribution of the lagrange term to each
+				 degree term _i of the polynomial */
+
+			int partial_term = _shamir_recover_poly_partial(params,k,i,_i);
+			if (partial_term == -1)	return -1;
+			if (partial_term){
+				for (unsigned j = 0; j < params.size; j++){
+					/* loop over the independent polynomials */
+					gf256_t y = _k_y(params,k,i,j);
+
+					if (y)
+						_c(params,p,_i,j) ^= exp[((unsigned)log[partial_term] + log_lagrange_factor + (unsigned)log[y]) % 0xff];
+				}
+			}
+		}
+	}
+
 	return 0;
 }

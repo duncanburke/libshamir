@@ -21,41 +21,11 @@ int copy_idxs(size_t key_size, unsigned t, shamir_key_t *k, shamir_key_t *_k, un
 	return 0;
 }
 
-
-/* Generate the next combination of k_idxs, selecting t indicies
-	 from the set [0,n).
-
-	 This algorithm is fairly trivial and should be self-explanatory.
-
-	 returns 0 on success, 1 on final combination, -1 on failure.
- */
-int next_combination(unsigned *k_idxs, unsigned n, unsigned t){
-	if (t > n || t < 1)
-		return fail(EINVAL);
-
-	if (k_idxs[t-1] + 1 < n){
-		k_idxs[t-1]++;
-		return 0;
-	} else if (t == 1)
-		return 1;
-	else {
-		for (int i = t - 2; i >= 0; i--){
-			if (k_idxs[i] + 1 < k_idxs[i+1]){
-				k_idxs[i++]++;
-				for (;i < t; i++)
-					k_idxs[i] = k_idxs[i-1] + 1;
-				return 0;
-			}
-		}
-		return 1;
-	}
-}
-
-/* returns 1 on failure, 0 on success, -1 on error */
+int _shamir_next_combination(unsigned *idxs, unsigned a, unsigned b);
 
 #define CHECK_FAIL(pred, err, label) if (pred) { saved_errno = (err); goto label; }
 
-int check_recovery(size_t size, unsigned n, unsigned t){
+int _check_recovery(size_t size, unsigned n, unsigned t, int recover_poly){
 	int ret;
 	int saved_errno;
 	int failure = 0;
@@ -73,8 +43,9 @@ int check_recovery(size_t size, unsigned n, unsigned t){
 	size_t poly_size = (size_t)_poly_size;
 	size_t key_size = (size_t)_key_size;
 
-	shamir_poly_t *p = malloc(poly_size);
+	shamir_poly_t *p = malloc(2*poly_size);
 	CHECK_FAIL(!p, ENOMEM, err1);
+	shamir_poly_t *_p = p + poly_size;
 
 	/* allocate space for all keys, and for a t-sized
 		 array of a combination thereof */
@@ -128,17 +99,23 @@ int check_recovery(size_t size, unsigned n, unsigned t){
 
 		ret = shamir_recover_secret(params, _k, _secret);
 		CHECK_FAIL(ret == -1, errno, err5);
-
 		ret = memcmp(secret, _secret, size);
-		if (ret){
-			/* Secret recovery failed */
-			failure = 1;
+		if (ret) failure = 1;
+
+		if (recover_poly){
+			ret = shamir_recover_poly(params, _k, _p);
+			CHECK_FAIL(ret == -1, errno, err5);
+			ret = memcmp(p, _p, poly_size);
+			if (ret) failure = 1;
+		}
+
+		if (failure){
 			for (unsigned i = 0; i < t; i++)
-				debug("(%d,%d)", *(_k + (i * params.t)), *(_k + (i * params.t) + 1));
+				debug("(%d,%d)", *(_k + key_size*i), *(_k + key_size*i + 1));
 			break;
 		}
 
-		ret = next_combination(k_idxs, n, t);
+		ret = _shamir_next_combination(k_idxs, n, t);
 		CHECK_FAIL(ret == -1, errno, err5);
 		if (ret)
 			break;
@@ -162,21 +139,32 @@ int check_recovery(size_t size, unsigned n, unsigned t){
 	return fail(saved_errno);
 }
 
-int main (int argc, char **argv){
+void check_recovery(size_t size, unsigned n, unsigned t, int recover_poly){
 	int ret;
 	char str[16];
 
-	for (unsigned n = 2; n < 10; n++){
-		for (unsigned t = 2; t < n; t++){
-			ret = check_recovery(4096, n, t);
-			if (ret == -1){
-				snprintf(str, sizeof(str), "n: %d t: %d", n, t);
-				perror(str);
-				abort();
-			} else if (ret == 1){
-				abort();
-			}
-		}
+	ret = _check_recovery(size, n, t, recover_poly);
+	if (ret == -1){
+		snprintf(str, sizeof(str), "n: %d t: %d", n, t);
+		perror(str);
+		abort();
+	} else if (ret == 1){
+		abort();
 	}
+}
+
+int main (int argc, char **argv){
+	check_recovery(1,2,2,1);
+	check_recovery(4096,3,2,1);
+
+	check_recovery(1,10,10,1);
+	check_recovery(1,16,2,1);
+
+	check_recovery(4096,255,255,0);
+
+
+	for (unsigned t = 2; t < 254; t+=64)
+		check_recovery(1,t+2,t,0);
+
 	return 0;
 }
