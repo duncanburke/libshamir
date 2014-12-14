@@ -179,7 +179,7 @@ int _shamir_get_key(shamir_params_t params, shamir_poly_t *p, gf256_t x, shamir_
 		unsigned y = _c(params, p, i--, j);
 		for (;i >= 0; i--){
 			if (y)
-				y = exp[log_x + log[y]];
+				y = exp[(log_x + log[y])%0xff];
 			y ^= _c(params, p, i, j);
 			y &= GF256_MASK;
 		}
@@ -225,7 +225,7 @@ int shamir_recover_secret(shamir_params_t params, shamir_key_t *k, uint8_t *secr
 			volatile unsigned log_l = (((log_n%0xff) + 0xff) - (log_d%0xff))%0xff;
 			unsigned y = _k_y(params,k,i,j);
 			if (y)
-				secret[j] ^= exp[log[y] + log_l];
+				secret[j] ^= exp[(log[y] + log_l)%0xff];
 		}
 	}
 	return 0;
