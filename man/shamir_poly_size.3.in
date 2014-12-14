@@ -1,0 +1,42 @@
+.TH SHAMIR_POLY_SIZE 3 "2014-10-22" "libshamir"
+.SH NAME
+shamir_poly_size, shamir_key_size \- get the space required for a polynomial or key
+.SH SYNOPSIS
+.nf
+.BR "#include <shamir.h>"
+.sp
+.BI "ssize_t shamir_poly_size(shamir_params_t " params );
+.sp
+.BI "ssize_t shamir_key_size(shamir_params_t " params );
+.fi
+.SH DESCRIPTION
+Functions such as
+.BR shamir_init_poly (3)
+and
+.BR shamir_get_keys (3)
+require that buffers be preallocated for a polynomial or keys.
+The required space is dependent on the parameters struct
+.I params
+and can be obtained by the functions
+.BR shamir_poly_size ()
+and
+.BR shamir_key_size ().
+.SH NOTES
+For a full description of the semantics of
+.IR params
+see
+.BR shamir (7).
+.SH RETURN VALUE
+On success,
+.BR shamir_poly_size ()
+and
+.BR shamir_key_size ()
+return the size of the buffer required for a polynomial and key, respectively.
+.sp
+On error, \-1 is returned and \fIerrno\fP is set appropriately.
+.SH SEE ALSO
+.BR shamir (7),
+.BR shamir_init_poly (3),
+.BR shamir_get_keys (3),
+.BR shamir_recover_secret (3),
+.BR shamir_recover_poly (3)

@@ -24,6 +24,11 @@ AX_RANDOM_DEVICE
 AC_CONFIG_FILES([
 Makefile
 libshamir.pc
+man/shamir.7
+man/shamir_get_keys.3
+man/shamir_init_poly.3
+man/shamir_poly_size.3
+man/shamir_recover_secret.3
 ])
 
 AC_CONFIG_HEADERS([config.h])

@@ -1,0 +1,52 @@
+.TH SHAMIR_INIT_POLY 3 "2014-10-22" "libshamir"
+.SH NAME
+shamir_init_poly \- generate a polynomial encoding a secret from which shares can be generated using Shamir's Secret Sharing
+.SH SYNOPSIS
+.nf
+.BR "#include <shamir.h>"
+.sp
+.BI "int shamir_init_poly(shamir_params_t " params ", shamir_poly_t *" p ,
+.BI "                     uint8_t *" secret );
+.fi
+.SH DESCRIPTION
+.BR shamir_init_poly ()
+generates a polynomial
+.I p
+encoding the buffer
+.IR secret .
+.I p
+may be used by
+.BR shamir_get_key (3)
+or
+.BR shamir_get_keys (3)
+to generate multiple keys, a subset of which may be used to reconstruct
+.IR secret .
+.PP
+.I secret
+must be a buffer of size
+.IR params.size .
+.PP
+.I p
+must be preallocated with size given by
+.BR shamir_poly_size (3).
+.SH NOTES
+For a full description of the semantics of
+.B shamir_init_poly
+and the parameters
+.IR params
+see
+.BR shamir (7).
+.SH RETURN VALUE
+On success,
+.BR shamir_init_poly ()
+returns 0.
+.sp
+On error, \-1 is returned and \fIerrno\fP is set appropriately.
+.SH SEE ALSO
+.BR shamir (7),
+.BR shamir_poly_size (3),
+.BR shamir_key_size (3),
+.BR shamir_get_key (3),
+.BR shamir_get_keys (3),
+.BR shamir_recover_secret (3),
+.BR shamir_recover_poly(3)

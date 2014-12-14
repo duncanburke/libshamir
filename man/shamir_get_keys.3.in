@@ -1,0 +1,70 @@
+.TH SHAMIR_GET_KEYS 3 "2014-10-22" "libshamir"
+
+.SH NAME
+shamir_get_key, shamir_get_keys \- get one or more keys for an encoded secret
+.SH SYNOPSIS
+.nf
+.BR "#include <shamir.h>"
+.sp
+.BI "int shamir_get_key(shamir_params_t " params ", shamir_poly_t *" p ,
+.BI "                    gf256_t " x ", shamir_key_t *" k );
+.sp
+.BI "int shamir_get_keys(shamir_params_t " params ", shamir_poly_t *" p ,
+.BI "                    shamir_key_t *" k ", unsigned " n );
+.fi
+.SH DESCRIPTION
+.BR shamir_get_keys ()
+retrieves
+.I n
+distinct keys for the secret encoded in the polynomial
+.IR p .
+.PP
+.BR shamir_get_key ()
+functions identically, except it retrieves a single key for the point
+.I x
+in the field GF(2^8).
+.PP
+For
+.BR shamir_get_keys (),
+.B k
+should be a preallocated array of
+.B n
+elements, with the size of each element given by
+.BR shamir_key_size (3).
+.BR shamir_get_key ()
+requires that
+.B k
+be preallocated to the size of a single such element.
+.SH NOTES
+.BR shamir_get_keys ()
+should suffice for the normal use case.
+.BR shamir_get_key ()
+is provided primarily for the special situation where a polynomial has been recovered using
+.BR shamir_recover_poly (3)
+and additional keys are desired.
+.PP
+In general, it is not useful for
+.I n
+to be less than
+.IR params.t ","
+as this would not provide enough keys to recover the original secret.
+.PP
+For a more thorough semantics, see
+.BR shamir (7).
+
+.SH RETURN VALUE
+On success,
+.BR shamir_get_key ()
+and
+.BR shamir_get_keys ()
+return 0.
+.sp
+On error, \-1 is returned and \fIerrno\fP is set appropriately.
+
+.SH SEE ALSO
+.BR shamir (7),
+.BR shamir_poly_size (3),
+.BR shamir_key_size (3),
+.BR shamir_init_poly (3),
+.BR shamir_recover_secret (3),
+.BR shamir_recover_poly (3)

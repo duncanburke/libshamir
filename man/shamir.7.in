@@ -1,0 +1,214 @@
+.TH SHAMIR 7 "2014-10-22" "libshamir"
+.SH NAME
+shamir - library implementing Shamir Secret Sharing
+.SH SYNOPSIS
+.nf
+.BR "#include <shamir.h>"
+.sp
+.BI "typedef struct {"
+.BI "  size_t " size ";"
+.BI "  unsigned " threshold ";"
+.BI "} shamir_params_t;"
+.sp
+.BI "ssize_t shamir_poly_size(shamir_params_t " params );
+.sp
+.BI "ssize_t shamir_key_size(shamir_params_t " params );
+.sp
+.BI "int shamir_init_poly(shamir_params_t " params ", shamir_poly_t *" p ,
+.BI "                     uint8_t *" secret );
+.sp
+.BI "int shamir_get_key(shamir_params_t " params ", shamir_poly_t *" p ,
+.BI "                    gf256_t " x ", shamir_key_t *" k );
+.sp
+.BI "int shamir_get_keys(shamir_params_t " params ", shamir_poly_t *" p ,
+.BI "                    shamir_key_t *" k ", unsigned " n );
+.sp
+.BI "int shamir_recover_secret(shamir_params_t " params ", shamir_key_t *" k ","
+.BI "                          uint8_t *" secret );
+.sp
+.BI "int shamir_recover_poly(shamir_params_t " params ", shamir_key_t *" k ","
+.BI "                        shamir_poly_t *" p );
+.sp
+.BI "gf256_t shamir_key_x(shamir_key_t *" k );
+.sp
+.BI "int shamir_poly_secret(shamir_params_t " params ", shamir_poly_t *" p ","
+.BI "                       uint8_t *" secret );
+.sp
+.BI "sizeof(shamir_poly_t) == 1"
+.BI "sizeof(shamir_key_t) == 1"
+.BI "sizeof(gf256_t) == 1"
+.fi
+.SH DESCRIPTION
+.B libshamir
+is an implementation of Shamir's Secret Sharing in the Galois Field GF(2^8), also called GF(256).
+.B libshamir
+takes as input an array of bytes,
+.IR secret ,
+which is not constrained in size.
+.I secret
+is encoded into a polynomial using
+.BR shamir_init_poly (3).
+From this polynomial, up to 255 distinct keys may be generated using
+.BR shamir_get_key (3)
+or
+.BR shamir_get_keys (3).
+Additionally, polynomial creation takes the parameter
+.IR threshold .
+Possession of any
+.I threshold
+distinct keys is sufficient to recover the original secret using
+.BR shamir_recover_secret (3)
+or the polynomial using
+.BR shamir_recover_poly (3).
+.SS Parameters
+Any use of
+.B libshamir
+requires setting up a parameters struct. Two values must be filled:
+.IP * 3
+.IR size :
+the size of
+.IR secret .
+.I size
+is unrestricted and may be an arbitrary number of bytes.
+.IP *
+.IR threshold :
+the threshold number of keys required to reconstruct
+.IR secret .
+.I threshold
+may range from 2 to 255.
+.PP
+.SS Polynomial
+A polynomial encodes the
+.I secret
+which was used to generate it, in addition to some random data.
+A suitable source of randomness is detected at compliation time, for example, /dev/urandom is used on Linux.
+The source of randomness may also be overriden by defining the following symbols at link-time:
+.nf
+.sp
+.BI "int _shamir_init_random();"
+.sp
+.BI "int _shamir_get_random(void *" buf ", size_t " buflen );
+.sp
+.BI "int _shamir_cleanup_random();"
+.sp
+.fi
+Semantically, a polynomial can be considered a mapping from
+.I secret
+to a set of 255 keys, which are fixed once the polynomial has been generated using
+.BR shamir_init_poly (3).
+The generating secret can be recovered from a polynomial with
+.BR shamir_poly_secret (3).
+.PP
+All distinct keys generated from the same polynomial are interoperable and can be used to recover
+.I secret
+or the polynomial if
+.I threshold
+is met.
+Conversely, keys from different polynomials will not interoperate, even if the polynomials were
+produced from the same
+.IR secret .
+.SS Keys
+The keys corresponding to a specific polynomial are indexed by a value
+.I x
+which may range from 1 to 255, inclusive.
+.BR shamir_get_key (3)
+retrieves a single key with the specified index.
+.BR shamir_get_keys (3)
+is a helper which retrieves
+.I n
+keys with indices 1<=\fIx\fP<=\fIn\fP.
+The index
+.I x
+of a particular key may be retrieved with
+.BR shamir_key_x (3).
+.BR shamir_recover_secret (3)
+and
+.BR shamir_recover_poly (3)
+require
+.I threshold
+distinct keys; the distinctness condition is that the keys have different
+.I x
+values.
+.PP
+Multiple keys are passed as an array, where the size of each key is parameter-dependent and may be obtained with
+.BR shamir_key_size (3).
+Arrays of keys may be considered unordered and are not sensitive to the ordering of
+.I x
+values.
+.SH EXAMPLE
+.in +4n
+.nf
+#define N_KEYS 3
+char secret[] = "hello, world";
+shamir_params_t params = {.size = sizeof(secret), .threshold = 2};
+
+ssize_t poly_size = shamir_poly_size(params);
+ssize_t key_size = shamir_key_size(params);
+
+shamir_poly_t *p = malloc(poly_size);
+shamir_key_t *k = malloc(N_KEYS*key_size);
+
+shamir_init_poly(params, p, secret);
+shamir_get_keys(params, p, k, N_KEYS);
+
+/* 3 distinct keys have been generated */
+shamir_key_t *k1 = k;
+shamir_key_t *k2 = k + key_size;
+shamir_key_t *k3 = k + 2*key_size;
+
+/* Recover the secret using just 2 keys */
+shamir_key_t *_k = malloc(2*key_size);
+uint8_t _secret = malloc(params.size);
+memcpy(_k, k3, key_size);
+memcpy(_k, k1, key_size);
+
+shamir_recover_secret(params, _k, _secret);
+assert(memcmp(secret, _secret, params.size) == 0);
+
+/* Recover the polynomial from 2 keys */
+memset(p, 0, poly_size);
+shamir_recover_poly(params, _k, p);
+
+/* Create another key. We need to manually
+   specify its 'x' value, so find the first
+   unused value.
+*/
+gf256_t max_x = 0;
+for (int i = 0; i < N_KEYS; i++){
+    gf256 x = shamir_key_x(k + i*key_size);
+    max_x = (x > max_x) ? x : max_x;
+}
+shamir_key_t *k4 = malloc(key_size);
+shamir_get_key(params, p, max_x + 1, k4);
+.fi
+.in
+.SH NOTES
+While polynomial is used in the singular, strictly speaking, multiple distinct polynomials are generated
+in GF(2^8), one polynomial for each byte of
+.IR secret .
+.PP
+While the normal use case has a fairly low
+.IR threshold ,
+far higher values may be used, with some caveats.
+Firstly, the number of distinct keys is always 255, which limits the utility of very large values of
+.IR threshold .
+Secondly, while most functions scale well with
+.IR threshold ,
+there is the notable exception of
+.BR shamir_recover_poly (3)
+which exhibits very poor scalability and may become computationally intractable for large values.
+If you wish to use a large
+.IR threshold
+and anticipate the need to generate additional keys in the future, it is advisable to test the performance
+.BR shamir_recover_poly (3)
+for your use case. Alternatively, you could save the polynomial somewhere secure (e.g encrypted using
+.IR secret ).
+
+.SH SEE ALSO
+.BR shamir_poly_size (3),
+.BR shamir_key_size (3),
+.BR shamir_init_poly (3),
+.BR shamir_get_key (3),
+.BR shamir_get_keys (3),
+.BR shamir_recover_secret (3),
+.BR shamir_recover_poly(3)
