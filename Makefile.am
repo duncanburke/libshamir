@@ -10,7 +10,7 @@ libshamir_la_CFLAGS = -Wall -Wextra
 include_HEADERS = include/shamir.h
 
 pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = libshamir.pc.in
+pkgconfig_DATA = libshamir.pc
 
 AM_CFLAGS = -I$(srcdir)/include
 
