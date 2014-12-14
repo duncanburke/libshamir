@@ -167,7 +167,7 @@ int shamir_init_poly(shamir_params_t params, shamir_poly_t *p, uint8_t *secret){
 	 That is, the key is the x value followed by an array of the values of the polynomials
 	 evaluated at x.
  */
-int _shamir_get_key(shamir_params_t params, shamir_poly_t *p, gf256_t x, shamir_key_t *k){
+int shamir_get_key(shamir_params_t params, shamir_poly_t *p, gf256_t x, shamir_key_t *k){
 	if (!p || !k || params_invalid(params) || (x < 1))
 		return fail(EINVAL);
 
@@ -196,7 +196,7 @@ int shamir_get_keys(shamir_params_t params, shamir_poly_t *p, shamir_key_t *k, u
 		/* The x value for each key should be nonzero, in gf256, and unique among keys.
 			 Use x = i+1 as this satisfies the required properties.
 		*/
-		int ret = _shamir_get_key(params, p, i+1, _k(params,k,i));
+		int ret = shamir_get_key(params, p, i+1, _k(params,k,i));
 		if (ret == -1) return -1;
 	}
 	return 0;
