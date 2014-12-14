@@ -69,6 +69,10 @@ ssize_t shamir_key_size(shamir_params_t params){
 */
 #define _k_y(params, k, i, j) (*(_k(params,k,i) + j + 1))
 
+gf256_t shamir_key_x(shamir_key_t *k){
+	return *k;
+}
+
 #ifdef HAVE_RANDOM_DEVICE
 int __shamir_rand_fd=-1;
 
@@ -154,6 +158,16 @@ int shamir_init_poly(shamir_params_t params, shamir_poly_t *p, uint8_t *secret){
 	_shamir_cleanup_random();
 	return fail(saved_errno);
 
+}
+
+int shamir_poly_secret(shamir_params_t params, shamir_poly_t *p, uint8_t *secret){
+	if (!p || !secret || params_invalid(params))
+		return fail(EINVAL);
+
+	for (unsigned j = 0; j < params.size; j++)
+		secret[j] = _c(params, p, 0, j);
+
+	return 0;
 }
 
 /* Calculate the key k for the given x value.
