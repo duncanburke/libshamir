@@ -18,15 +18,15 @@ static int fail(int _errno){
 }
 
 int params_invalid(shamir_params_t params){
-	return (params.t < 2 ||
-					params.t > MAX_KEYS ||
+	return (params.threshold < 2 ||
+					params.threshold > MAX_KEYS ||
 					params.size < 1);
 }
 
 ssize_t shamir_poly_size(shamir_params_t params){
 	if (params_invalid(params))
 		return fail(EINVAL);
-	return params.size * params.t;
+	return params.size * params.threshold;
 }
 
 ssize_t shamir_key_size(shamir_params_t params){
@@ -43,16 +43,16 @@ ssize_t shamir_key_size(shamir_params_t params){
 	 j indexes the byte offset within the secret and keys.
 
 	 The following invariants hold:
-	 0 <= i < params.t <= MAX_KEYS
+	 0 <= i < params.threshold <= MAX_KEYS
 	 0 <= j < params.size
 
-	 Note that params.t is the number of coefficients in each polynomial.
+	 Note that params.threshold is the number of coefficients in each polynomial.
 */
 
 /*
 	The i-th coefficient for the j-th polynomial.
 */
-#define _c(params, p, i, j) (*(p + (j * params.t) + i))
+#define _c(params, p, i, j) (*(p + (j * params.threshold) + i))
 
 /*
 	The i-th key
@@ -125,7 +125,7 @@ int shamir_init_poly(shamir_params_t params, shamir_poly_t *p, uint8_t *secret){
 	*/
 
 	/* Start by setting the entire polynomial to random values */
-	ret = _shamir_get_random(p, params.size*params.t);
+	ret = _shamir_get_random(p, params.size*params.threshold);
 	if (ret == -1) goto err_1;
 
 	/* Redraw high-order coefficients until they are nonzero.
@@ -133,8 +133,8 @@ int shamir_init_poly(shamir_params_t params, shamir_poly_t *p, uint8_t *secret){
 	*/
 
 	for (unsigned j = 0; j < params.size; j++){
-		while (!_c(params,p,params.t-1,j)){
-			ret = _shamir_get_random(&_c(params,p,params.t-1,j), 1);
+		while (!_c(params,p,params.threshold-1,j)){
+			ret = _shamir_get_random(&_c(params,p,params.threshold-1,j), 1);
 			if (ret == -1) goto err_1;
 		}
 	}
@@ -175,7 +175,7 @@ int _shamir_get_key(shamir_params_t params, shamir_poly_t *p, gf256_t x, shamir_
 	_k_x(params,k,0) = x;
 
 	for (unsigned j = 0; j < params.size; j++){
-		int i = params.t - 1;
+		int i = params.threshold - 1;
 		unsigned y = _c(params, p, i--, j);
 		for (;i >= 0; i--){
 			if (y)
@@ -208,11 +208,11 @@ int shamir_recover_secret(shamir_params_t params, shamir_key_t *k, uint8_t *secr
 
 	for (unsigned j = 0; j < params.size; j++){
 		secret[j] = 0;
-		for (unsigned i = 0; i < params.t; i++){
+		for (unsigned i = 0; i < params.threshold; i++){
 			/* The discrete log of the numerator and denominator of the lagrange terms */
 			unsigned log_n = 0, log_d = 0;
 
-			for (unsigned _i = 0; _i < params.t; _i++){
+			for (unsigned _i = 0; _i < params.threshold; _i++){
 				if (i == _i) continue;
 				log_n += log[_k_x(params, k, _i)];
 				log_d += log[_k_x(params, k, i) ^ _k_x(params, k, _i)];
@@ -261,10 +261,10 @@ int _shamir_next_combination(unsigned *idxs, unsigned a, unsigned b){
 
 
 static int _shamir_recover_poly_partial(shamir_params_t params, shamir_key_t *k, unsigned lagrange_term, unsigned term_degree){
-	if (term_degree == params.t - 1)
+	if (term_degree == params.threshold - 1)
 		return 1;
 
-	unsigned n_constants = (params.t-1) - term_degree;
+	unsigned n_constants = (params.threshold-1) - term_degree;
 	unsigned idxs[n_constants];
 	unsigned partial_term = 0;
 	int ret = 0;
@@ -283,7 +283,7 @@ static int _shamir_recover_poly_partial(shamir_params_t params, shamir_key_t *k,
 		partial_term ^= exp[log_partial_subterm % 0xff];
 
 		if (term_degree)
-			ret = _shamir_next_combination(idxs, params.t-1, n_constants);
+			ret = _shamir_next_combination(idxs, params.threshold-1, n_constants);
 
 		if (ret == -1)
 			return -1;
@@ -296,20 +296,20 @@ int shamir_recover_poly(shamir_params_t params, shamir_key_t *k, shamir_poly_t *
 	if (!k || !p || params_invalid(params))
 		return fail(EINVAL);
 
-	memset(p, 0, params.size * params.t);
+	memset(p, 0, params.size * params.threshold);
 
-	for (unsigned i = 0; i < params.t; i++){
+	for (unsigned i = 0; i < params.threshold; i++){
 		/* loop over the terms of the lagrange polynomial */
 		unsigned log_d = 0;
 
-		for (unsigned _i = 0; _i < params.t; _i++){
+		for (unsigned _i = 0; _i < params.threshold; _i++){
 			/* calculate the denominator of the lagrange term */
 			if (i == _i) continue;
 			log_d += log[_k_x(params, k, i) ^ _k_x(params, k, _i)];
 		}
 		unsigned log_lagrange_factor = (0xff - (log_d%0xff))%0xff;
 
-		for (unsigned _i = 0; _i < params.t; _i++){
+		for (unsigned _i = 0; _i < params.threshold; _i++){
 			/* calculate the partial contribution of the lagrange term to each
 				 degree term _i of the polynomial */
 

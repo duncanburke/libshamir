@@ -8,7 +8,7 @@ typedef uint8_t gf256_t;
 
 typedef struct {
 	size_t size;
-	unsigned t;
+	unsigned threshold;
 } shamir_params_t;
 
 

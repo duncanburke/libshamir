@@ -32,7 +32,7 @@ int _check_recovery(size_t size, unsigned n, unsigned t, int recover_poly){
 
 	debug("size: %zd, n: %d, t: %d", size, n, t);
 
-	shamir_params_t params = {.size = size, .t = t};
+	shamir_params_t params = {.size = size, .threshold = t};
 	if (n < t) return fail(EINVAL);
 
 	ssize_t _poly_size = shamir_poly_size(params);
