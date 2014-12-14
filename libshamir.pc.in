@@ -5,6 +5,7 @@ includedir=@includedir@
 
 Name: libshamir
 Description: Shamir's Secret Sharing in GF(256)
+URL: http://github.com/duncanburke/libshamir
 Version: @VERSION@
-Libs: -L${libdir} -lgfshare
+Libs: -L${libdir} -lshamir
 Cflags: -I$(includedir}
