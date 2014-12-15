@@ -48,7 +48,7 @@ int _check_recovery(size_t size, unsigned n, unsigned t, int recover_poly){
 	shamir_poly_t *_p = p + poly_size;
 
 	/* allocate space for all keys, and for a t-sized
-		 array of a combination thereof */
+	   array of a combination thereof */
 	shamir_key_t *k = malloc((n+t) * key_size);
 	CHECK_FAIL(!k, ENOMEM, err2);
 
@@ -59,7 +59,7 @@ int _check_recovery(size_t size, unsigned n, unsigned t, int recover_poly){
 	CHECK_FAIL(!k_idxs, ENOMEM, err3);
 
 	/* allocate space for the secret and for the
-		 recovered secret (which should match */
+	   recovered secret (which should match */
 	uint8_t *secret = malloc(2*size);
 	CHECK_FAIL(!secret, ENOMEM, err4);
 
@@ -87,8 +87,8 @@ int _check_recovery(size_t size, unsigned n, unsigned t, int recover_poly){
 	CHECK_FAIL(ret == -1, errno, err5);
 
 	/* Enumerate combinations of the keys, copy each combination
-		 into _k, recover the secret and verify it matches the
-		 original secret.
+	   into _k, recover the secret and verify it matches the
+	   original secret.
 	*/
 
 	for (unsigned i = 0; i < t; i++)
