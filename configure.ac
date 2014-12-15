@@ -1,6 +1,6 @@
 AC_PREREQ(2.57)
-AC_INIT(libshamir, [0.0.1], [duncankburke@gmail.com])
-AC_SUBST(LTLIBVER, 0:1:0)
+AC_INIT(libshamir, [0.1.0], [duncankburke@gmail.com])
+AC_SUBST(LTLIBVER, 0:0:0)
 
 AC_CONFIG_MACRO_DIR(m4)
 
